@@ -78,27 +78,29 @@ $daftar_nama = explode("\n", file_get_contents('daftar_nama.txt'));
                 </h1>
             </div>
         </div>
-        <audio id="audio" src="music.mp3" ref="audio"></audio>
-        <div class="position-fixed w-100 bottom-0 start-0" v-if="winners.length > 0">
-            <div class="d-flex">
-                <div style="width:200px" class="bg-dark bg-opacity-50 p-2 text-center">
+
+        <div class="position-absolute w-100 bottom-0 start-0" v-if="winners.length > 0">
+            <div class="row">
+                <div class="col-md-3 col-lg-2 bg-dark bg-opacity-50 p-2 text-center">
                     Daftar pemenang
                 </div>
-                <marquee class="bg-dark bg-opacity-25 p-2" data-bs-toggle="modal" data-bs-target="#modalWinners">
+                <marquee class="col-md-9 col-lg-10 bg-dark bg-opacity-25 p-2" data-bs-toggle="modal" data-bs-target="#modalWinners">
                     <span class="winner border-end pe-3 me-3 border-light" v-for="(name, idx) in winners">{{ name }}</span>
                 </marquee>
             </div>
         </div>
 
-        <button class="btn position-fixed top-0 end-0 m-3 opacity-50" @click="rolling = !rolling">
+        <button class="btn position-absolute top-0 end-0 m-3 opacity-50" @click="rolling = !rolling">
             <img :src="rolling ? 'pause.png' : 'play.png'" style="height:2em">
         </button>
 
-        <div class="position-fixed top-0 start-0 m-3">
+        <div class="position-absolute top-0 start-0 m-3">
             <button class="navbar-toggler fs-3" @click="fillInput" ref="btnSetting" data-bs-toggle="modal" data-bs-target="#modalConfig">
                 <span class="navbar-toggler-icon"></span>
             </button>
         </div>
+
+        <audio id="audio" src="music.mp3" ref="audio"></audio>
 
         <div class="modal fade" id="modalConfig" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg">
