@@ -1,0 +1,237 @@
+<?php
+$daftar_nama = explode("\n", file_get_contents('daftar_nama.txt'));
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doorprize</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Pacifico">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Carter+One">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body {
+            font-family: Carter One;
+            color:white;
+        }
+        #container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height:100vh;
+            background: linear-gradient(to bottom,  
+                rgba(242,38,42,1) 0%, 
+                rgba(160,160,22,1) 20%, 
+                rgba(79,161,170,1) 40%, 
+                rgba(130,161,230,1) 60%, 
+                rgba(160,160,22,1) 80%, 
+                rgba(242,38,42,1) 100%);
+            background-size: 100% 400%;
+            background-position:0 0;
+        }
+        @keyframes container_rolling_animation { 
+            0%   {background-position: 0 0;}
+            50%  {background-position: 0 100%;}
+            100% {background-position: 0 0;}
+        }
+        #container.rolling {
+            animation-name: container_rolling_animation;
+            animation-duration: 3s;
+            animation-iteration-count: infinite;
+        }
+        #container.selected {
+            background: rgb(239,126,0);
+            background: radial-gradient(circle, rgba(239,126,0,1) 0%, rgba(242,38,42,1) 100%);
+        }
+        @keyframes text_rolling_animation {
+            0%   {transform: scale(1)}
+            30%  {transform: scale(.7)}
+            60%  {transform: scale(1.5)}
+        }
+        #text.rolling {
+            animation-name: text_rolling_animation;
+            animation-duration: .95s;
+            animation-iteration-count: infinite;
+        }
+        #congrats {
+            font-family: Pacifico;
+        }
+        #confetti-canvas {
+            position:fixed;
+            height:100vh;
+            width:100vw;
+            top:0;
+            left:0;
+        }
+    </style>
+</head>
+<body data-bs-theme="dark">
+    <div id="app">
+        <div id="container" :class="{rolling: rolling, selected: !rolling}">
+            <div class="m-3 text-center">
+                <h2 id="congrats" v-show="!rolling && selectedIdx != -1" style="margin-top:-1.5em">Congratulations</h2>
+                <h1 id="text" class="m-0" style="font-size: 5em;" :class="{rolling: rolling, selected: !rolling}">
+                    {{ selectedName ?? "TARIK MAAANG!" }}
+                </h1>
+            </div>
+        </div>
+        <audio id="audio" src="music.mp3" ref="audio"></audio>
+        <div class="position-fixed w-100 bottom-0 start-0" v-if="winners.length > 0">
+            <div class="d-flex">
+                <div style="width:200px" class="bg-dark bg-opacity-50 p-2 text-center">
+                    Daftar pemenang
+                </div>
+                <marquee class="bg-dark bg-opacity-25 p-2" data-bs-toggle="modal" data-bs-target="#modalWinners">
+                    <span class="winner border-end pe-3 me-3 border-light" v-for="(name, idx) in winners">{{ name }}</span>
+                </marquee>
+            </div>
+        </div>
+
+        <button class="btn position-fixed top-0 end-0 m-3 opacity-50" @click="rolling = !rolling">
+            <img :src="rolling ? 'pause.png' : 'play.png'" style="height:2em">
+        </button>
+
+        <div class="position-fixed top-0 start-0 m-3">
+            <button class="navbar-toggler fs-3" @click="fillInput" ref="btnSetting" data-bs-toggle="modal" data-bs-target="#modalConfig">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+
+        <div class="modal fade" id="modalConfig" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5">Daftar penerima</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" ref="dismissModal"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <textarea class="form-control border-0" style="height: 70vh" ref="inputNames"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" @click="download('daftar_penerima.txt', names.join('\r\n'))">Unduh</button>
+                        <button type="button" class="btn btn-success" @click="saveNames">Simpan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalWinners" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5">Daftar pemenang</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <select class="form-select border-0" multiple v-model="selectedWinners" style="height: 70vh">
+                            <option v-for="(name, idx) in winners" :value="idx">{{ name }}</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" @click="download('daftar_pemenang.txt', winners.join('\r\n'))">Unduh</button>
+                        <button type="button" class="btn btn-success" @click="transferSelectedWinners">Tambah ke daftar penerima</button>
+                        <button type="button" class="btn btn-danger" @click="removeSelectedWinner">Hapus</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="confetti.js"></script>
+<script>
+const { createApp } = Vue;
+
+app = createApp({
+    data() {
+        return {
+            selectedIdx: -1,
+            selectedName: null,
+            rolling: false,
+            timer: null,
+            names: [],
+            winners: [],
+            selectedWinners: []
+        }
+    },
+    mounted() {
+        if (localStorage.getItem('names')) this.names = JSON.parse(localStorage.getItem('names'));
+        if (localStorage.getItem('winners')) this.winners = JSON.parse(localStorage.getItem('winners'));
+    },
+    methods: {
+        randomName: function() {
+            if (this.names.length > 0) {
+                this.selectedIdx = Math.floor(Math.random() * this.names.length);
+                this.selectedName = this.names[this.selectedIdx];
+            }
+        },
+        saveNames: function() {
+            this.names =  this.$refs.inputNames.value ? this.$refs.inputNames.value.split("\n") : [];
+            this.storeData();
+            this.$refs.dismissModal.click();
+        },
+        fillInput: function() {
+            this.$refs.inputNames.innerHTML = this.names.join("\n");
+        },
+        download: function(filename, text) {
+            var element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
+        },
+        addWinner: function() {
+            this.winners.push(this.selectedName);
+            this.names.splice(this.selectedIdx, 1);
+            this.storeData();
+        },
+        removeSelectedWinner: function() {
+            for (idx of this.selectedWinners.sort(function(a,b){ return b - a; })) {
+                this.winners.splice(idx, 1);
+            }
+            this.storeData();
+        },
+        transferSelectedWinners: function() {
+            console.log(this.selectedWinners);
+            for(idx of this.selectedWinners) {
+                this.names.push(this.winners[idx]);
+            }
+            for (idx of this.selectedWinners.sort(function(a,b){ return b - a; })) {
+                this.winners.splice(idx, 1);
+            }
+            this.storeData();
+        },
+        storeData: function() {
+            localStorage.setItem('names', JSON.stringify(this.names));
+            localStorage.setItem('winners', JSON.stringify(this.winners));
+        },
+    },
+    watch: {
+        rolling: function(value) {
+            if (value === true) {
+                this.$refs.audio.play();
+                this.selectedIdx = -1;
+                this.selectedName = this.names.length > 0 ? this.randomName() : 'DATANYA BELUM ADA LHO';
+                this.timer = setInterval(() => { this.randomName() }, 50);
+                stopConfetti();
+            } else {
+                this.$refs.audio.pause();
+                clearInterval(this.timer);
+                if (this.selectedIdx != '-1') {
+                    this.addWinner();
+                    startConfetti();
+                }
+            }
+        },
+    }
+}).mount('#app')
+</script>
+
+</html>
