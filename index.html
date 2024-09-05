@@ -12,21 +12,18 @@ $daftar_nama = explode("\n", file_get_contents('daftar_nama.txt'));
     <link rel="icon" type="image/png" sizes="16x16" href="favicons/favicon-16.png">
     <title>Doorprize</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Pacifico">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Carter+One">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Staatliches">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <style>
         body {
-            background: rgba(242,38,42,1);
-            font-family: Carter One;
+            /* background: rgba(242,38,42,1); */
+            font-family: Staatliches;
             color:white;
         }
         #container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height:100vh;
             background: linear-gradient(to bottom,  
                 rgba(242,38,42,1) 0%, 
                 rgba(160,160,22,1) 20%, 
@@ -57,9 +54,6 @@ $daftar_nama = explode("\n", file_get_contents('daftar_nama.txt'));
             60%  {transform: scale(1.5)}
         }
         #text.rolling {
-            animation-name: text_rolling_animation;
-            animation-duration: .95s;
-            animation-iteration-count: infinite;
         }
         #congrats {
             font-family: Pacifico;
@@ -71,55 +65,108 @@ $daftar_nama = explode("\n", file_get_contents('daftar_nama.txt'));
             top:0;
             left:0;
         }
+        ::placeholder {
+            opacity: .3 !important; 
+        }
+
+        .candidate {
+            width:400px;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body data-bs-theme="dark">
     <div id="app">
-        <div id="container" :class="{rolling: rolling, selected: !rolling}">
-            <div class="m-3 text-center">
-                <h2 id="congrats" v-show="!rolling && selectedIdx != -1" style="margin-top:-1.5em">Congratulations</h2>
-                <h1 id="text" class="m-0 display-2" :class="{rolling: rolling, selected: !rolling}">
-                    {{ selectedName ?? "TARIK MAAANG!" }}
-                </h1>
-            </div>
-        </div>
-
-        <div class="position-fixed w-100 bottom-0 start-0" v-if="winners.length > 0">
-            <div class="row">
-                <div class="col-md-3 col-lg-2 bg-dark bg-opacity-50 p-2 text-center">
-                    Daftar pemenang
+        <div class="min-vh-100 vw-100 d-flex flex-column">
+            <div class="p-2 p-lg-3">
+                <div class="d-grid d-lg-flex align-items-center">
+                    <div class="col-lg-3 pb-2 pb-lg-none">
+                        <div class="d-flex justify-content-between">
+                            <div class="d-flex gap-1">
+                                <button class="btn border-0 dt-tooltip" data-bs-placement="bottom" :disabled="rolling" @click="fillInput" data-bs-toggle="modal" data-bs-target="#modalParticipant" title="Peserta">
+                                    <i class="fa fa-users"></i>
+                                    <span class="ms-2">
+                                        {{ participants.length }}
+                                    </span>
+                                </button>
+                                <button class="btn border-0 dt-tooltip" data-bs-placement="bottom" :disabled="rolling" data-bs-toggle="modal" data-bs-target="#modalWinners" title="Pemenang">
+                                    <i class="fa fa-trophy"></i>
+                                    <span class="ms-2">
+                                        {{ winners.length }}
+                                    </span>
+                                </button>
+                                <div class="dropdown dt-tooltip" title="Jumlah pemenang">
+                                    <button class="btn border-0" type="button" :disabled="rolling" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fa fa-dice"></i>
+                                        <span class="ms-2">
+                                            {{ winner_count }}
+                                        </span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li v-for="i in (participants.length > max_winner_count ? max_winner_count : participants.length)">
+                                            <a class="dropdown-item" href="#" @click="winner_count = i">{{ i }}</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="d-lg-none">
+                                <button class="btn dt-tooltip btn-info me-3" v-show="!rolling && !playing && current_winners.length > 0" data-bs-placement="bottom" title="Reset" @click="reset">
+                                    <i class="fa fs-3 fa-arrows-rotate"></i>
+                                </button>
+                                <button class="btn dt-tooltip btn-success" v-show="!playing" :disabled="rolling" data-bs-placement="bottom" title="Mainkan" @click="play">
+                                    <i class="fa fs-3 fa-play"></i>
+                                </button>
+                                <button class="btn dt-tooltip btn-danger" v-show="playing" data-bs-placement="bottom" title="Hentikan" @click="stop">
+                                    <i class="fa fs-3 fa-stop"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <input type="text" class="form-control bg-transparent border-0 text-center fs-3" placeholder="Masukkan nama hadiah disini" :disabled="rolling" v-model="prize">
+                    </div>
+                    <div class="d-none d-lg-block col-lg-3 text-end">
+                        <button class="btn dt-tooltip btn-info me-3" v-show="!rolling && !playing && current_winners.length > 0" data-bs-placement="bottom" title="Reset" @click="reset">
+                            <i class="fa fs-3 fa-arrows-rotate"></i>
+                        </button>
+                        <button class="btn dt-tooltip btn-success" v-show="!playing" :disabled="rolling || winner_count <= 0" data-bs-placement="bottom" title="Mainkan" @click="play">
+                            <i class="fa fs-3 fa-play"></i>
+                        </button>
+                        <button class="btn dt-tooltip btn-danger" v-show="playing" data-bs-placement="bottom" title="Hentikan" @click="stop">
+                            <i class="fa fs-3 fa-stop"></i>
+                        </button>
+                    </div>
                 </div>
-                <marquee class="col-md-9 col-lg-10 bg-dark bg-opacity-25 p-2" data-bs-toggle="modal" data-bs-target="#modalWinners">
-                    <span class="winner border-end pe-3 me-3 border-light" v-for="(name, idx) in winners">{{ name }}</span>
-                </marquee>
             </div>
-        </div>
-
-        <button class="btn position-absolute top-0 end-0 m-3 opacity-50" @click="rolling = !rolling">
-            <img :src="rolling ? 'pause.png' : 'play.png'" style="height:2em">
-        </button>
-
-        <div class="position-absolute top-0 start-0 m-3">
-            <button class="navbar-toggler fs-3" @click="fillInput" ref="btnSetting" data-bs-toggle="modal" data-bs-target="#modalConfig">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <div class="flex-grow-1 d-flex justify-content-center align-items-center">
+                <div class="p-2 p-lg-3 d-flex flex-wrap justify-content-center">
+                    <div class="text-center position-relative m-3" v-for="i in winner_count">
+                        <h1 id="text" class="rounded-3 display-2 border py-2 px-3" :class="{rolling: rolling, selected: !rolling}">
+                            <div v-if="i-1 in current_winners">
+                                {{ current_winners[i-1].name }}
+                            </div>
+                            <i class="fa fa-user-ninja text-muted opacity-50" v-else></i>
+                        </h1>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <audio id="audio" src="music.mp3" ref="audio"></audio>
 
-        <div class="modal fade" id="modalConfig" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="modalParticipant" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h1 class="modal-title fs-5">Daftar penerima</h1>
+                        <h1 class="modal-title fs-5">Daftar peserta</h1>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" ref="dismissModal"></button>
                     </div>
                     <div class="modal-body p-0">
-                        <textarea class="form-control border-0" style="height: 70vh" ref="inputNames"></textarea>
+                        <textarea class="form-control border-0" style="height: 70vh" ref="inputparticipants"></textarea>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" @click="download('daftar_penerima.txt', names.join('\r\n'))">Unduh</button>
-                        <button type="button" class="btn btn-success" @click="saveNames">Simpan</button>
+                        <button type="button" class="btn btn-primary" @click="download('daftar_penerima.txt', participants.join('\r\n'))">Unduh</button>
+                        <button type="button" class="btn btn-success" @click="saveParticipants">Simpan</button>
                     </div>
                 </div>
             </div>
@@ -133,14 +180,43 @@ $daftar_nama = explode("\n", file_get_contents('daftar_nama.txt'));
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-0">
-                        <select class="form-select border-0" multiple v-model="selectedWinners" style="height: 70vh">
-                            <option v-for="(name, idx) in winners" :value="idx">{{ name }}</option>
-                        </select>
+                        <table class="table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Hadiah</th>
+                                    <th>Nama</th>
+                                    <th style="width:20px"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="table-group-divider">
+                                <tr v-for="(row, idx) in winners">
+                                    <th>{{ row.prize }}</th>
+                                    <th>{{ row.name }}</th>
+                                    <th>
+                                        <button class="btn border-0" type="button" :disabled="rolling" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fa fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="#" @click="deleteWinner(idx, true)">
+                                                    <i class="fa fa-rotate-left me-2"></i> Undi ulang
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#" @click="deleteWinner(idx)">
+                                                    <i class="fa fa-times me-2"></i> Hapus
+                                                </a>
+                                            </li>
+                                        </ul>
+                                        <div class="btn-group">
+                                        </div>
+                                    </th>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" @click="download('daftar_pemenang.txt', winners.join('\r\n'))">Unduh</button>
-                        <button type="button" class="btn btn-success" @click="transferSelectedWinners">Tambah ke daftar penerima</button>
-                        <button type="button" class="btn btn-danger" @click="removeSelectedWinner">Hapus</button>
+                        <button type="button" class="btn btn-primary" @click="downloadWinners()">Unduh</button>
                     </div>
                 </div>
             </div>
@@ -154,37 +230,51 @@ const { createApp } = Vue;
 app = createApp({
     data() {
         return {
-            selectedIdx: -1,
-            selectedName: null,
+            max_winner_count: 10,
+            current_winners: [],
+            playing: false,
             rolling: false,
             timer: null,
-            names: [],
+            prize: "",
+            winner_count: 1,
+            participants: [],
             winners: [],
             selectedWinners: []
         }
     },
     mounted() {
-        if (localStorage.getItem('names')) this.names = JSON.parse(localStorage.getItem('names'));
+        const tooltipTriggerList = document.querySelectorAll('.dt-tooltip');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+        if (localStorage.getItem('participants')) this.participants = JSON.parse(localStorage.getItem('participants'));
         if (localStorage.getItem('winners')) this.winners = JSON.parse(localStorage.getItem('winners'));
+        if (localStorage.getItem('prize')) this.prize = localStorage.getItem('prize');
+        if (localStorage.getItem('winner_count')) this.winner_count = parseInt(localStorage.getItem('winner_count'));
+        if (this.winner_count > this.max_winner_count) {
+            this.winner_count = this.max_winner_count;
+        }
     },
     methods: {
-        randomName: function() {
-            if (this.names.length > 0) {
-                this.selectedIdx = Math.floor(Math.random() * this.names.length);
-                this.selectedName = this.names[this.selectedIdx];
-            }
-        },
-        saveNames: function() {
-            this.names =  this.$refs.inputNames.value ? this.$refs.inputNames.value.split("\n") : [];
+        saveParticipants: function() {
+            this.selectedName = null;
+            stopConfetti();
+            this.participants =  this.$refs.inputparticipants.value ? this.$refs.inputparticipants.value.split("\n") : [];
             this.storeData();
             this.$refs.dismissModal.click();
         },
         fillInput: function() {
-            this.$refs.inputNames.innerHTML = this.names.join("\n");
+            this.$refs.inputparticipants.innerHTML = this.participants.join("\n");
         },
-        download: function(filename, text) {
+        downloadWinners: function() {
+            filename = 'daftar_pemenang.csv';
+            text = '';
+
+            for (const row of this.winners) {
+                text += '"' + row.prize + '";' + row.name + '\n';
+            }
+
             var element = document.createElement('a');
-            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(text));
             element.setAttribute('download', filename);
 
             element.style.display = 'none';
@@ -195,47 +285,98 @@ app = createApp({
             document.body.removeChild(element);
         },
         addWinner: function() {
-            this.winners.push(this.selectedName);
-            this.names.splice(this.selectedIdx, 1);
+            this.winners.push({'prize': this.prize, 'name': this.selectedName});
+            this.participants.splice(this.selectedIdx, 1);
             this.storeData();
         },
-        removeSelectedWinner: function() {
-            for (idx of this.selectedWinners.sort(function(a,b){ return b - a; })) {
-                this.winners.splice(idx, 1);
+        deleteWinner: function(idx, add_participant = false) {
+            if (add_participant) {
+                this.participants.push(this.winners[idx].name);
             }
-            this.storeData();
-        },
-        transferSelectedWinners: function() {
-            console.log(this.selectedWinners);
-            for(idx of this.selectedWinners) {
-                this.names.push(this.winners[idx]);
-            }
-            for (idx of this.selectedWinners.sort(function(a,b){ return b - a; })) {
-                this.winners.splice(idx, 1);
-            }
+
+            this.winners.splice(idx, 1);
             this.storeData();
         },
         storeData: function() {
-            localStorage.setItem('names', JSON.stringify(this.names));
+            localStorage.setItem('participants', JSON.stringify(this.participants));
             localStorage.setItem('winners', JSON.stringify(this.winners));
+            localStorage.setItem('winner_count', this.winner_count);
+            localStorage.setItem('prize', this.prize);
         },
+        play: function() {
+            if (this.winner_count > this.participants.length) {
+                this.winner_count = this.participants.length;
+            }
+
+            this.rolling = true;
+            this.playing = true;
+            this.$refs.audio.play();
+            this.current_winners = [];
+            stopConfetti();
+            this.timer = setInterval(() => {
+                for (let i = 0; i < this.winner_count; i++) {
+                    if (i in this.current_winners && this.current_winners[i].stopped) {
+                        continue;
+                    }
+
+                    //random participant
+                    const idx = Math.floor(Math.random() * this.participants.length);
+                    const name = this.participants[idx];
+                    this.current_winners[i] = {
+                        idx: idx,
+                        name: name,
+                        stopped: false
+                    };
+                }
+            }, 50);
+        },
+        stop: function() {
+            this.$refs.audio.pause();
+            this.playing = false;
+            const stopTimer = setInterval(() => {
+                let all_stopped = true;
+
+                for (let i = 0; i < this.winner_count; i++) {
+                    if (!this.current_winners[i].stopped) {
+                        //add winners
+                        this.current_winners[i].stopped = true;
+                        if (this.current_winners[i].name) {
+                            this.winners.push({'prize': this.prize, 'name': this.current_winners[i].name});
+                            this.participants.splice(this.current_winners[i].idx, 1);
+                        }
+                        
+                        all_stopped = false;
+                        break;
+                    }
+                }
+
+                if (all_stopped) {
+                    this.rolling = false;
+                    clearInterval(this.timer);
+                    clearInterval(stopTimer);
+                    startConfetti();
+                    this.storeData();
+                }
+            }, 200);
+        },
+        reset: function() {
+            this.$refs.audio.pause();
+            stopConfetti();
+            this.current_winners = [];
+        }
     },
     watch: {
-        rolling: function(value) {
-            if (value === true) {
-                this.$refs.audio.play();
-                this.selectedIdx = -1;
-                this.selectedName = this.names.length > 0 ? this.randomName() : 'DATANYA BELUM ADA LHO';
-                this.timer = setInterval(() => { this.randomName() }, 50);
-                stopConfetti();
-            } else {
-                this.$refs.audio.pause();
-                clearInterval(this.timer);
-                if (this.selectedIdx != '-1') {
-                    this.addWinner();
-                    startConfetti();
-                }
-            }
+        winner_count: function(value) {
+            this.selectedName = null;
+            this.current_winners = [];
+            stopConfetti();
+            this.storeData();
+        },
+        prize: function(value) {
+            this.selectedName = null;
+            this.current_winners = [];
+            stopConfetti();
+            this.storeData();
         },
     }
 }).mount('#app')
